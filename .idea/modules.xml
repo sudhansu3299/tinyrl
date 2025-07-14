@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/agent/agent.iml" filepath="$PROJECT_DIR$/agent/agent.iml" />
+      <module fileurl="file://$PROJECT_DIR$/agent_ops_poc.iml" filepath="$PROJECT_DIR$/agent_ops_poc.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ai_agent/ai_agent.iml" filepath="$PROJECT_DIR$/ai_agent/ai_agent.iml" />
+      <module fileurl="file://$PROJECT_DIR$/backend/backend.iml" filepath="$PROJECT_DIR$/backend/backend.iml" />
+    </modules>
+  </component>
+</project>
