@@ -9,7 +9,7 @@ def calculate_gae(data, gamma=0.99, gae_lambda=0.95):
     terminated = data["terminated"]
     truncated = data["truncated"]
 
-    # 1. Compute one-step TD residuals.
+    # 1. Compute one-step TD errors.
     # True termination means there is no future value.
     bootstrap_mask = (~terminated).float()
 
@@ -24,7 +24,7 @@ def calculate_gae(data, gamma=0.99, gae_lambda=0.95):
     gae = torch.tensor(0.0, dtype=rewards.dtype)
 
     for t in reversed(range(len(rewards))):
-        # Never propagate GAE across an episode boundary.
+        # doesn't propagate GAE across an episode boundary.
         episode_mask = (~(terminated[t] | truncated[t])).float()
 
         gae = (
@@ -34,7 +34,8 @@ def calculate_gae(data, gamma=0.99, gae_lambda=0.95):
 
         advantages[t] = gae
 
-    # 3. Critic target: estimated return.
+    # 3. Critic targets estimated return. and not using mc returns(Gt)
+    # Rt = At(GAE) + V(St)
     returns = advantages + values
 
     return deltas, advantages, returns

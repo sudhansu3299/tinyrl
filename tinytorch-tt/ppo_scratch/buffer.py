@@ -10,8 +10,8 @@ class RolloutBuffer: #Stores the transitions carried during one rollout
         self.actions = []
         self.rewards = []
         self.log_probs = []
-        self.values = []
-        self.next_values = []
+        self.values = [] #V(st)
+        self.next_values = [] #V(st+1)
         self.terminated = []
         self.truncated = []
 

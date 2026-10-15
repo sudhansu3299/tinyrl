@@ -14,63 +14,59 @@ from ppo import update_ppo
 from checkpoint import save_checkpoint, load_checkpoint
 
 
-def train(env_id, total_steps, rollout_steps=1024):
-    torch.manual_seed(42)
+def train(env_name, total_steps, rollout_steps=1024, resume_path=None):
+    torch.manual_seed(42) #init seed makes the init weights fixed for reproducibility
 
-    # Use a separate output directory for each environment.
-    output_dir = f"runs/{env_id}"
+    # Use a separate output directory for each env.
+    output_dir = f"runs/{env_name}"
     os.makedirs(output_dir, exist_ok=True)
 
-    env = gym.make(env_id)
+    env = gym.make(env_name)
     observation, _ = env.reset(seed=42)
 
 
     model = ActorCritic(
-        state_dim=env.observation_space.shape[0],
-        action_dim=env.action_space.n,
+        state_dim=env.observation_space.shape[0], #gym provided 1 D arr
+        action_dim=env.action_space.n, # n is for discrete space
     )
 
     optimizer = torch.optim.Adam(
-        model.parameters(), lr=3e-4
+        model.parameters(), lr=3e-4 #recursively gets all params from both net
     )
 
-    resume_path = None  # Set this when resuming.
-
-    # if resume_path is not None:
-    #     global_step, update = load_checkpoint(
-    #         resume_path,
-    #         model,
-    #         optimizer,
-    #     )
-    #
-    #     print(
-    #         f"Resumed from {resume_path}: "
-    #         f"{global_step} steps, update {update}"
-    #     )
+    #initializing training checkpoint variables
+    global_step = 0 # total interactions completed yet
+    update = 0 # total updates as per rollout completed yet
 
     if resume_path is not None:
         try:
             global_step, update = load_checkpoint(
                 resume_path, model, optimizer
             )
+            print(
+                f"Resumed from {resume_path}: "
+                f"{global_step} steps, update {update}"
+            )
         except (KeyError, TypeError):
-            # Migrate an older model-only checkpoint.
+            # legacy checkpoint: model weights only, not optimizer state
             old_state = torch.load(
                 resume_path,
                 map_location="cpu",
-                weights_only=True,
+                weights_only=True, #
             )
-            model.load_state_dict(old_state)
-            global_step = 100000
-            update = global_step // rollout_steps
+            model.load_state_dict(old_state) #incase we have only saved model and not optim
 
-            print("Loaded legacy model weights; optimizer reset.")
+            # The original training progress is unknown.
+            global_step = 0
+            update = 0
 
+            print(
+                "Loaded legacy model weights; "
+                "training progress and optimizer state unavailable."
+            )
 
     recent_rewards = deque(maxlen=20)
-    episode_return = 0.0
-    global_step = 0
-    update = 0
+    episode_return = 0.0 #episodic return of the current episode
 
     reward_path = os.path.join(
         output_dir, "training_rewards.csv"
@@ -95,7 +91,7 @@ def train(env_id, total_steps, rollout_steps=1024):
 
         data = buffer.get_tensors()
         global_step += len(buffer)
-        update += 1
+        update += 1 # rollout level update counter
 
         _, advantages, returns = calculate_gae(data)
 
@@ -109,7 +105,7 @@ def train(env_id, total_steps, rollout_steps=1024):
             epochs=10,
         )
 
-        # Preserve the running episode return across rollouts.
+        # Preserve the running episode return across rollouts for metrics
 
         rollout_start_step = global_step - len(buffer)
 
@@ -123,7 +119,7 @@ def train(env_id, total_steps, rollout_steps=1024):
                         data["truncated"],
                     )
             ):
-                episode_return += reward.item()
+                episode_return += reward.item() #total reward of the current episode
 
                 if terminated.item() or truncated.item():
                     recent_rewards.append(episode_return)
@@ -172,4 +168,4 @@ if __name__ == "__main__":
     parser.add_argument("--resume", default=None)
     args = parser.parse_args()
 
-    train(args.env, args.steps)
+    train(args.env, args.steps, resume_path=args.resume)

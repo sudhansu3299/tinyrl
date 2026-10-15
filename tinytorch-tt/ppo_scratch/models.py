@@ -47,7 +47,7 @@ class Critic(nn.Module):
         )
 
     def forward(self, state):
-        # Remove the final dimension: [batch, 1] -> [batch].
+        # Removing the final dimension: [batch, 1] -> [batch].
         return self.network(state).squeeze(-1)
 
 
@@ -61,6 +61,9 @@ class ActorCritic(nn.Module):
         self.critic = Critic(state_dim, hidden_dim)
 
     def get_action_and_value(self, state, action=None):
+        #During rollout, we sample an action from the policy.
+        #During PPO optimization, evaluate the provided action under the current policy.
+
         dist = self.actor.get_distribution(state)
 
         # Sample an action unless one was supplied.
@@ -70,6 +73,8 @@ class ActorCritic(nn.Module):
         #used for calculating surrogate objective by comparing p(x)/q(x) = Rt(θ) = exp(log Pnew - log Pold)
         log_prob = dist.log_prob(action) #how likely was the selected action under the policy
         entropy = dist.entropy() #how uncertain/random or decisive is the policy's action distribution
+        #equally likely action -> high entropy, decisive action -> low entropy
+
         value = self.critic(state)
 
         return action, log_prob, entropy, value

@@ -40,7 +40,7 @@ def evaluate(checkpoint_path, episodes=100):
                 observation, dtype=torch.float32
             )
 
-            # Deterministic evaluation: choose the most likely action.
+            # Deterministic evaluation and not sampling
             with torch.no_grad():
                 logits = model.actor(state)
                 action = torch.argmax(logits).item()

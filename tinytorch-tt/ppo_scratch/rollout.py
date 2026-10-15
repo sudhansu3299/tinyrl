@@ -21,11 +21,11 @@ def collect_rollout(
     for _ in range(num_steps):
         state = torch.as_tensor(
             observation, dtype=torch.float32
-        )
+        ) #because we have numpy values from gym
 
         with torch.no_grad():
             action, log_prob, _, value = (
-                model.get_action_and_value(state)
+                model.get_action_and_value(state) #collecting experience
             )
 
         next_observation, reward, terminated, truncated, _ = (
