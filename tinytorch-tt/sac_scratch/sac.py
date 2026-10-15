@@ -23,6 +23,7 @@ class SAC:
             lr=3e-4,
             device=None,
             auto_entropy_tuning=True,
+            use_cnn=False,
     ):
         self.device = device or (
             "cuda" if torch.cuda.is_available() else "cpu"
@@ -49,11 +50,11 @@ class SAC:
         )
 
         self.actor = Actor(
-            state_dim, action_dim, action_scale
+            state_dim, action_dim, action_scale, use_cnn=use_cnn
         ).to(self.device)
 
-        self.critic1 = Critic(state_dim, action_dim).to(self.device)
-        self.critic2 = Critic(state_dim, action_dim).to(self.device)
+        self.critic1 = Critic(state_dim, action_dim, use_cnn=use_cnn).to(self.device)
+        self.critic2 = Critic(state_dim, action_dim, use_cnn=use_cnn).to(self.device)
 
         # Target critics start with identical parameters.
         self.target_critic1 = copy.deepcopy(self.critic1)

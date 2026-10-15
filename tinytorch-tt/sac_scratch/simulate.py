@@ -34,7 +34,15 @@ def main():
         render_mode="human" if args.render else None,
     )
 
-    state_dim = int(np.prod(env.observation_space.shape))
+    # Detect if environment uses image observations (e.g., CarRacing-v3)
+    use_cnn = args.env == "CarRacing-v3"
+    
+    if use_cnn:
+        # For image observations, state_dim is the shape tuple (height, width, channels)
+        state_dim = env.observation_space.shape
+    else:
+        state_dim = int(np.prod(env.observation_space.shape))
+    
     action_dim = int(np.prod(env.action_space.shape))
 
     checkpoint = torch.load(
@@ -55,6 +63,7 @@ def main():
 
     action_scale = float(metadata.get("action_scale", 1.0))
     auto_entropy_tuning = bool(metadata.get("auto_entropy_tuning", False))
+    use_cnn = bool(metadata.get("use_cnn", False))
 
     agent = SAC(
         state_dim=state_dim,
@@ -62,6 +71,7 @@ def main():
         action_scale=action_scale,
         device=device,
         auto_entropy_tuning=auto_entropy_tuning,
+        use_cnn=use_cnn,
     )
     agent.load_checkpoint(checkpoint_path, map_location=device)
 

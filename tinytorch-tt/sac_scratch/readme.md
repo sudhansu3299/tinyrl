@@ -30,6 +30,13 @@ python train.py \
 --eval-episodes 5 \
 --auto-entropy-tuning
 ```
+
+```bash
+python train.py --env CarRacing-v3 \
+   --steps 200000 \
+   --auto-entropy-tuning
+```
+
 **EVAL:**
 ```bash
 python simulate.py \
@@ -46,4 +53,11 @@ python simulate.py \
   --checkpoint runs/LunarLanderContinuous-v3/best.pth \
   --episodes 3 \
   --render
+```
+
+```bash
+python simulate.py --env CarRacing-v3 \
+   --checkpoint runs/CarRacing-v3/best.pth 
+   --episodes 10 
+   --render
 ```

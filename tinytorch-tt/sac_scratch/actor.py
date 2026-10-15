@@ -3,17 +3,28 @@ import torch
 import torch.nn as nn
 from torch.distributions import Normal
 
+from cnn_feature_extractor import CNNFeatureExtractor
+
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, action_scale=2.0):
+    def __init__(self, state_dim, action_dim, action_scale=2.0, use_cnn=False):
         super().__init__()
 
-        self.backbone = nn.Sequential(
-            nn.Linear(state_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-        )
+        self.use_cnn = use_cnn
+        
+        if use_cnn:
+            self.feature_extractor = CNNFeatureExtractor(input_channels=3, feature_dim=256)
+            self.backbone = nn.Sequential(
+                nn.Linear(256, 256),
+                nn.ReLU(),
+            )
+        else:
+            self.backbone = nn.Sequential(
+                nn.Linear(state_dim, 256),
+                nn.ReLU(),
+                nn.Linear(256, 256),
+                nn.ReLU(),
+            )
 
         self.mean_layer = nn.Linear(256, action_dim)
         self.log_std_layer = nn.Linear(256, action_dim)
@@ -21,7 +32,11 @@ class Actor(nn.Module):
         self.action_scale = action_scale
 
     def forward(self, state):
-        features = self.backbone(state)
+        if self.use_cnn:
+            features = self.feature_extractor(state)
+            features = self.backbone(features)
+        else:
+            features = self.backbone(state)
 
         mean = self.mean_layer(features)
         log_std = self.log_std_layer(features)

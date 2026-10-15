@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--learning-starts", type=int, default=5_000)
+    parser.add_argument("--update-freq", type=int, default=1)
     parser.add_argument("--eval-freq", type=int, default=10_000)
     parser.add_argument("--eval-episodes", type=int, default=5)
     parser.add_argument("--auto-entropy-tuning", action="store_true")
@@ -56,16 +57,31 @@ def main():
     env = gym.make(args.env)
     env.action_space.seed(args.seed)
 
-    state_dim = int(np.prod(env.observation_space.shape))
+    # Detect if environment uses image observations (e.g., CarRacing-v3)
+    use_cnn = args.env == "CarRacing-v3"
+    
+    if use_cnn:
+        # For image observations, state_dim is the shape tuple (height, width, channels)
+        state_dim = env.observation_space.shape
+    else:
+        state_dim = int(np.prod(env.observation_space.shape))
+    
     action_dim = int(np.prod(env.action_space.shape))
 
-    # LunarLanderContinuous has symmetric action bounds [-1, 1].
-    if not np.allclose(env.action_space.low, -1.0) or not np.allclose(
-            env.action_space.high, 1.0
-    ):
-        raise ValueError(
-            "This actor configuration expects symmetric action bounds [-1, 1]."
-        )
+    # Determine action scale based on environment
+    if use_cnn:
+        # CarRacing-v3 has action bounds [-1, 1] for steering and gas, [0, 1] for brake
+        # We'll use action_scale=1.0 and handle scaling in the environment
+        action_scale = 1.0
+    else:
+        # LunarLanderContinuous has symmetric action bounds [-1, 1].
+        if not np.allclose(env.action_space.low, -1.0) or not np.allclose(
+                env.action_space.high, 1.0
+        ):
+            raise ValueError(
+                "This actor configuration expects symmetric action bounds [-1, 1]."
+            )
+        action_scale = 1.0
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     run_dir = Path(args.output_root) / args.env
@@ -74,16 +90,17 @@ def main():
     agent = SAC(
         state_dim=state_dim,
         action_dim=action_dim,
-        action_scale=1.0,
+        action_scale=action_scale,
         device=device,
         auto_entropy_tuning=args.auto_entropy_tuning,
+        use_cnn=use_cnn,
     )
 
     replay_buffer = ReplayBuffer(
         state_dim=state_dim,
         action_dim=action_dim,
-        # If your existing buffer constructor differs, keep its existing API.
         capacity=1_000_000,
+        image_obs=use_cnn,
     )
 
     csv_path = run_dir / "training_rewards.csv"
@@ -94,16 +111,21 @@ def main():
     episode_return = 0.0
     episode_length = 0
     episode_count = 0
+    episode_start_time = None
     best_eval = -float("inf")
 
     with csv_path.open("w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow([
-            "step", "episode", "episode_return", "episode_length",
+            "step", "episode", "episode_return", "episode_length", "episode_time",
             "eval_mean", "eval_std"
         ])
 
+        episode_start_time = None
         for step in range(1, args.steps + 1):
+            if step == 1:
+                episode_start_time = __import__('time').time()
+
             if step < args.learning_starts:
                 action = env.action_space.sample()
             else:
@@ -122,23 +144,26 @@ def main():
             episode_return += float(reward)
             episode_length += 1
 
-            if step >= args.learning_starts:
+            if step >= args.learning_starts and step % args.update_freq == 0:
                 agent.update(replay_buffer, args.batch_size)
 
             if done:
+                import time
+                episode_time = time.time() - episode_start_time
                 episode_count += 1
                 print(
                     f"step={step} episode={episode_count} "
-                    f"return={episode_return:.2f} length={episode_length}"
+                    f"return={episode_return:.2f} length={episode_length} time={episode_time:.1f}s"
                 )
                 writer.writerow([
-                    step, episode_count, episode_return, episode_length, "", ""
+                    step, episode_count, episode_return, episode_length, f"{episode_time:.2f}", "", ""
                 ])
                 file.flush()
 
                 state, _ = env.reset()
                 episode_return = 0.0
                 episode_length = 0
+                episode_start_time = time.time()
 
             if step % args.eval_freq == 0:
                 mean_ret, std_ret, _ = evaluate(
@@ -165,6 +190,7 @@ def main():
                         "action_dim": action_dim,
                         "action_scale": 1.0,
                         "auto_entropy_tuning": args.auto_entropy_tuning,
+                        "use_cnn": use_cnn,
                     },
                 )
 
@@ -180,6 +206,7 @@ def main():
                             "action_dim": action_dim,
                             "action_scale": 1.0,
                             "auto_entropy_tuning": args.auto_entropy_tuning,
+                            "use_cnn": use_cnn,
                         },
                     )
 
@@ -194,6 +221,7 @@ def main():
             "action_dim": action_dim,
             "action_scale": 1.0,
             "auto_entropy_tuning": args.auto_entropy_tuning,
+            "use_cnn": use_cnn,
         },
     )
 

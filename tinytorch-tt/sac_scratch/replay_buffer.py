@@ -3,13 +3,20 @@ import numpy as np
 
 
 class ReplayBuffer:
-    def __init__(self, state_dim, action_dim, capacity=1_000_000):
+    def __init__(self, state_dim, action_dim, capacity=1_000_000, image_obs=False):
         self.capacity = capacity
+        self.image_obs = image_obs
 
-        self.states = np.zeros((capacity, state_dim), dtype=np.float32)
+        if image_obs:
+            # For image observations, state_dim is expected to be (height, width, channels)
+            self.states = np.zeros((capacity, *state_dim), dtype=np.float32)
+            self.next_states = np.zeros((capacity, *state_dim), dtype=np.float32)
+        else:
+            self.states = np.zeros((capacity, state_dim), dtype=np.float32)
+            self.next_states = np.zeros((capacity, state_dim), dtype=np.float32)
+        
         self.actions = np.zeros((capacity, action_dim), dtype=np.float32)
         self.rewards = np.zeros((capacity, 1), dtype=np.float32)
-        self.next_states = np.zeros((capacity, state_dim), dtype=np.float32)
         self.dones = np.zeros((capacity, 1), dtype=np.float32)
 
         self.ptr = 0
