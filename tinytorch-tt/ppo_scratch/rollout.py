@@ -1,28 +1,33 @@
 
 import torch
-import gymnasium as gym
 
 from buffer import RolloutBuffer
 
 
-def collect_rollout(model, env, num_steps=1024, seed=42):
+def collect_rollout(
+        model,
+        env,
+        num_steps=1024,
+        seed=None,
+        observation=None,
+        return_observation=False,
+):
     buffer = RolloutBuffer()
 
-    observation, _ = env.reset(seed=seed)
+    # Reset only when starting a fresh training run or evaluation.
+    if observation is None:
+        observation, _ = env.reset(seed=seed)
 
-    for step in range(num_steps):
-        # Convert the observation to a PyTorch tensor.
+    for _ in range(num_steps):
         state = torch.as_tensor(
             observation, dtype=torch.float32
         )
 
-        # Collection does not require gradients.
         with torch.no_grad():
             action, log_prob, _, value = (
                 model.get_action_and_value(state)
             )
 
-        # Interact with Gymnasium.
         next_observation, reward, terminated, truncated, _ = (
             env.step(action.item())
         )
@@ -31,14 +36,14 @@ def collect_rollout(model, env, num_steps=1024, seed=42):
             next_observation, dtype=torch.float32
         )
 
-        # Bootstrap the next value except at true termination.
+        # Bootstrap unless the environment truly terminated.
         with torch.no_grad():
-            if terminated:
-                next_value = torch.tensor(0.0)
-            else:
-                next_value = model.critic(next_state)
+            next_value = (
+                torch.tensor(0.0)
+                if terminated
+                else model.critic(next_state)
+            )
 
-        # Store the transition before resetting the environment.
         buffer.add(
             state=state,
             action=action.item(),
@@ -50,10 +55,12 @@ def collect_rollout(model, env, num_steps=1024, seed=42):
             truncated=truncated,
         )
 
-        observation = next_observation
-
-        # Start a new episode when the current one ends.
         if terminated or truncated:
             observation, _ = env.reset()
+        else:
+            observation = next_observation
+
+    if return_observation:
+        return buffer, observation
 
     return buffer
