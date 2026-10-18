@@ -47,6 +47,7 @@ def main():
     parser.add_argument("--eval-freq", type=int, default=10_000)
     parser.add_argument("--eval-episodes", type=int, default=5)
     parser.add_argument("--auto-entropy-tuning", action="store_true")
+    parser.add_argument("--force-gpu", action="store_true", help="Fail if GPU is not available")
     parser.add_argument("--output-root", default="runs")
     args = parser.parse_args()
 
@@ -83,7 +84,18 @@ def main():
             )
         action_scale = 1.0
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+
+    print("Using:", device)
+
+    if args.force_gpu and device.type == "cpu":
+        raise RuntimeError("--force-gpu specified but CUDA is not available. Please install PyTorch with CUDA support.")
+
     run_dir = Path(args.output_root) / args.env
     run_dir.mkdir(parents=True, exist_ok=True)
 

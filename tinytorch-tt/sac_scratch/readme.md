@@ -57,7 +57,7 @@ python simulate.py \
 
 ```bash
 python simulate.py --env CarRacing-v3 \
-   --checkpoint runs/CarRacing-v3/best.pth 
-   --episodes 10 
+   --checkpoint runs/CarRacing-v3/best.pth \
+   --episodes 10 \
    --render
 ```
