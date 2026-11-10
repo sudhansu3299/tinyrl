@@ -1,1 +1,4 @@
-.idea
+.idea/
+*.iml
+output.mp4
+.DS_Store
