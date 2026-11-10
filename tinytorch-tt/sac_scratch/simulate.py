@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from sac import SAC
+from action_visualizer import ActionVisualizer
 
 
 def main():
@@ -22,6 +23,7 @@ def main():
         action="store_true",
         help="Sample stochastic actions instead of using the deterministic policy",
     )
+    parser.add_argument("--visualize-actions", action="store_true", help="Show real-time action visualization")
     args = parser.parse_args()
 
     checkpoint_path = Path(args.checkpoint)
@@ -75,6 +77,12 @@ def main():
     )
     agent.load_checkpoint(checkpoint_path, map_location=device)
 
+    # Initialize action visualizer if requested
+    visualizer = None
+    if args.visualize_actions:
+        visualizer = ActionVisualizer(action_dim, args.env, history_len=100)
+        print(f"Action visualization enabled for {args.env}")
+
     returns = []
     lengths = []
 
@@ -88,6 +96,11 @@ def main():
             action = agent.select_action(
                 state, evaluate=not args.stochastic
             )
+            
+            # Update action visualizer
+            if visualizer is not None:
+                visualizer.update(action)
+            
             state, reward, terminated, truncated, _ = env.step(action)
             episode_return += float(reward)
             length += 1
@@ -107,6 +120,11 @@ def main():
     print(f"Mean return : {np.mean(returns):.2f}")
     print(f"Std return  : {np.std(returns):.2f}")
     print(f"Mean length : {np.mean(lengths):.1f}")
+
+    # Close action visualizer if it was opened
+    if visualizer is not None:
+        visualizer.close()
+        print("Action visualization closed")
 
     env.close()
 

@@ -18,8 +18,8 @@ class SAC:
             action_dim,
             action_scale=2.0,
             gamma=0.99,
-            tau=0.005,
-            alpha=0.2,
+            tau=0.005, # soft update coeff (how much target critic params are updated towards online critic)
+            alpha=0.2, # entropy coeff/temp.
             lr=3e-4,
             device=None,
             auto_entropy_tuning=True,
@@ -34,14 +34,14 @@ class SAC:
 
         self.auto_entropy_tuning = auto_entropy_tuning
         self.log_alpha = torch.tensor(
-            math.log(alpha),
+            math.log(alpha), # make it log so that later exp would make it +ve, even tho after learning log alpha is -ve
             dtype=torch.float32,
             device=self.device,
             requires_grad=auto_entropy_tuning,
         )
 
         self.alpha = alpha
-        self.target_entropy = -float(action_dim)
+        self.target_entropy = -float(action_dim) #policy randomness as per action space
 
         self.alpha_optimizer = (
             optim.Adam([self.log_alpha], lr=lr)
@@ -53,14 +53,17 @@ class SAC:
             state_dim, action_dim, action_scale, use_cnn=use_cnn
         ).to(self.device)
 
+        # two Q networks Q1 and Q2 initialized
+        # helps in controlling the overestimation bias of Q values
         self.critic1 = Critic(state_dim, action_dim, use_cnn=use_cnn).to(self.device)
         self.critic2 = Critic(state_dim, action_dim, use_cnn=use_cnn).to(self.device)
+        '''Why not more than 2? because of law of diminishing returns, pessimistic trap(actor doesn't explore enough), massive computational overhead'''
 
         # Target critics start with identical parameters.
         self.target_critic1 = copy.deepcopy(self.critic1)
         self.target_critic2 = copy.deepcopy(self.critic2)
 
-        # Target critics are used only to calculate targets.
+        # target critics are used only to calculate targets as they give out target Q values
         for param in self.target_critic1.parameters():
             param.requires_grad = False
 
@@ -81,12 +84,12 @@ class SAC:
     def select_action(self, state, evaluate=False):
         state = torch.as_tensor(
             state, dtype=torch.float32, device=self.device
-        ).unsqueeze(0)
+        ).unsqueeze(0) # as actor expects a batch of states
 
         if evaluate:
             # Deterministic action for evaluation.
             mean, _ = self.actor(state)
-            action = torch.tanh(mean) * self.actor.action_scale
+            action = torch.tanh(mean) * self.actor.action_scale # to squash action from the sample to -1,1
         else:
             action, _ = self.actor.sample(state)
 
@@ -95,7 +98,7 @@ class SAC:
     def update(self, replay_buffer, batch_size=256):
         states, actions, rewards, next_states, dones = (
             replay_buffer.sample(batch_size)
-        )
+        ) # batch of transitions
 
         states = torch.as_tensor(
             states, dtype=torch.float32, device=self.device
@@ -117,7 +120,7 @@ class SAC:
         with torch.no_grad():
             next_actions, next_log_probs = self.actor.sample(
                 next_states
-            )
+            ) #target don't need gradient flow
 
             target_q1 = self.target_critic1(
                 next_states, next_actions
@@ -130,13 +133,14 @@ class SAC:
 
             target_q = rewards + self.gamma * (1 - dones) * (
                     min_target_q - self.alpha * next_log_probs
-            )
+            ) # y = r + gamma * (1 - done) * (Q(s', a') - alpha * log pi(a' | s'))
+            # what you earn + what you expect to earn from future(discounted)
 
         # 2. Update Critic 1.
         current_q1 = self.critic1(states, actions)
         critic1_loss = nn.functional.mse_loss(
             current_q1, target_q
-        )
+        ) # Loss = (Q(s,a), target_q)^2
 
         self.critic1_optimizer.zero_grad()
         critic1_loss.backward()
@@ -153,28 +157,29 @@ class SAC:
         self.critic2_optimizer.step()
 
         # 4. Update Actor.
-        sampled_actions, log_probs = self.actor.sample(states)
+        sampled_actions, log_probs = self.actor.sample(states) # new current action from current policy
 
-        # Freeze critic parameters during actor optimization.
-        # Gradients still flow through Q with respect to the actions.
+        # Freeze critic parameters during actor optimization as to prevent unnecesaary gradient calculation for critic
+        # Gradients still flow through Q with respect to the actions dq/da and actor learns from feedback
         for p in self.critic1.parameters():
             p.requires_grad = False
         for p in self.critic2.parameters():
             p.requires_grad = False
 
-        q1_pi = self.critic1(states, sampled_actions)
-        q2_pi = self.critic2(states, sampled_actions)
-        min_q_pi = torch.minimum(q1_pi, q2_pi)
+        q1_pi = self.critic1(states, sampled_actions) # Q1(s,a)
+        q2_pi = self.critic2(states, sampled_actions) # Q2(s,a)
+        min_q_pi = torch.minimum(q1_pi, q2_pi) #Q(s,a)
 
         actor_loss = (
                 self.alpha * log_probs - min_q_pi
-        ).mean()
+        ).mean() # actor objective loss = E[alpha * log pi(a|s) - Q(s,a)], -ve Q(s,a) because it would minimize the maximized Q value i.e.favorable action
 
+        #update the actor
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
-        self.actor_optimizer.step()
+        self.actor_optimizer.step() #critic's weights remain unchanged during this optimization step
 
-        #Restore critic gradients
+        # restore critic gradients as next step we want the critics to learn
         for p in self.critic1.parameters():
             p.requires_grad = True
         for p in self.critic2.parameters():
@@ -187,7 +192,7 @@ class SAC:
             alpha_loss = -(
                     self.log_alpha
                     * (log_probs.detach() + self.target_entropy)
-            ).mean()
+            ).mean() # entropy loss = -alpha * (log pi(a|s) + target_entropy)
 
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
@@ -203,7 +208,7 @@ class SAC:
                     self.target_critic1.parameters(),
                     self.critic1.parameters(),
             ):
-                target.lerp_(online, self.tau)
+                target.lerp_(online, self.tau) # target = target + tau * (online - target)
 
             for target, online in zip(
                     self.target_critic2.parameters(),

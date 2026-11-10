@@ -11,6 +11,7 @@ import torch
 
 from sac import SAC
 from replay_buffer import ReplayBuffer
+from action_visualizer import ActionVisualizer
 
 
 def evaluate(agent, env_id, episodes, seed, render=False):
@@ -49,6 +50,7 @@ def main():
     parser.add_argument("--auto-entropy-tuning", action="store_true")
     parser.add_argument("--force-gpu", action="store_true", help="Fail if GPU is not available")
     parser.add_argument("--output-root", default="runs")
+    parser.add_argument("--visualize-actions", action="store_true", help="Show real-time action visualization")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -115,6 +117,12 @@ def main():
         image_obs=use_cnn,
     )
 
+    # Initialize action visualizer if requested
+    visualizer = None
+    if args.visualize_actions:
+        visualizer = ActionVisualizer(action_dim, args.env, history_len=100)
+        print(f"Action visualization enabled for {args.env}")
+
     csv_path = run_dir / "training_rewards.csv"
     checkpoint_path = run_dir / "latest.pth"
     best_path = run_dir / "best.pth"
@@ -142,6 +150,10 @@ def main():
                 action = env.action_space.sample()
             else:
                 action = agent.select_action(state, evaluate=False)
+
+            # Update action visualizer
+            if visualizer is not None:
+                visualizer.update(action)
 
             next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
@@ -236,6 +248,11 @@ def main():
             "use_cnn": use_cnn,
         },
     )
+
+    # Close action visualizer if it was opened
+    if visualizer is not None:
+        visualizer.close()
+        print("Action visualization closed")
 
     env.close()
     print(f"Saved checkpoint: {checkpoint_path}")

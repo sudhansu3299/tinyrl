@@ -7,9 +7,10 @@ import pygame
 import torch
 
 from models import ActorCritic
+from action_visualizer import ActionVisualizer
 
 
-def simulate(env_id, checkpoint, episodes=5, scale=2):
+def simulate(env_id, checkpoint, episodes=5, scale=2, visualize_actions=False):
     env = gym.make(env_id, render_mode="rgb_array")
 
     try:
@@ -38,6 +39,12 @@ def simulate(env_id, checkpoint, episodes=5, scale=2):
         model.load_state_dict(state_dict)
         model.eval()
 
+        # Initialize action visualizer if requested
+        visualizer = None
+        if visualize_actions:
+            visualizer = ActionVisualizer(env.action_space.n, env_id, history_len=100)
+            print(f"Action visualization enabled for {env_id}")
+
         pygame.init()
 
         env.reset(seed=2000)
@@ -60,6 +67,8 @@ def simulate(env_id, checkpoint, episodes=5, scale=2):
             while not done:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
+                        if visualizer is not None:
+                            visualizer.close()
                         return
 
                 state = torch.as_tensor(
@@ -69,6 +78,10 @@ def simulate(env_id, checkpoint, episodes=5, scale=2):
                 with torch.no_grad():
                     logits = model.actor(state)
                     action = torch.argmax(logits).item()
+
+                    # Update action visualizer if provided
+                    if visualizer is not None:
+                        visualizer.update(logits.cpu().numpy(), selected_action=action)
 
                 observation, reward, terminated, truncated, _ = (
                     env.step(action)
@@ -99,6 +112,10 @@ def simulate(env_id, checkpoint, episodes=5, scale=2):
             time.sleep(1)
 
     finally:
+        # Close action visualizer if it was opened
+        if visualizer is not None:
+            visualizer.close()
+            print("Action visualization closed")
         env.close()
         pygame.quit()
 
@@ -109,6 +126,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--scale", type=int, default=2)
+    parser.add_argument("--visualize-actions", action="store_true", help="Show real-time action visualization")
 
     args = parser.parse_args()
 
@@ -117,4 +135,5 @@ if __name__ == "__main__":
         checkpoint=args.checkpoint,
         episodes=args.episodes,
         scale=args.scale,
+        visualize_actions=args.visualize_actions,
     )

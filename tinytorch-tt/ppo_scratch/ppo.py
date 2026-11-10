@@ -52,7 +52,7 @@ def compute_ppo_loss(
     ).mean()
 
     # Critic regression loss.
-    #L(vf) = E[(V(st) - Rt)^2]
+    #L(vf) = E[(V_phi(st) - Rt)^2]
     value_loss = F.mse_loss(new_values, returns)
 
     # Mean policy entropy.

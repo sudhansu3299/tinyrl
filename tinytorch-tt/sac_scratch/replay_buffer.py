@@ -17,10 +17,10 @@ class ReplayBuffer:
         
         self.actions = np.zeros((capacity, action_dim), dtype=np.float32)
         self.rewards = np.zeros((capacity, 1), dtype=np.float32)
-        self.dones = np.zeros((capacity, 1), dtype=np.float32)
+        self.dones = np.zeros((capacity, 1), dtype=np.float32) #episode done or not
 
-        self.ptr = 0
-        self.size = 0
+        self.ptr = 0 # index where next experience will be written to, different when buffer overflows
+        self.size = 0 # number of valid experiences stored
 
     def add(self, state, action, reward, next_state, done):
         self.states[self.ptr] = state

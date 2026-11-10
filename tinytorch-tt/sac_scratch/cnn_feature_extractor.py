@@ -3,28 +3,30 @@ import torch.nn as nn
 
 
 class CNNFeatureExtractor(nn.Module):
-    """CNN feature extractor for image-based observations (e.g., CarRacing-v3)."""
-    
+    """CNN feature extractor for image based inputs like Carracing-v3"""
+
     def __init__(self, input_channels=3, feature_dim=256):
         super().__init__()
         
         self.cnn = nn.Sequential(
-            # Conv block 1: 96x96x3 -> 23x23x32
+            # Conv block 1: 96x96x3 -> 23x23x32 (H_out = (H_in + 2*padding - kernel_size)/Stride + 1)
+            # per patch of kernel, so, 3x8x8(1 filter shape) -> 1 value; 32 such filters
             nn.Conv2d(input_channels, 32, kernel_size=8, stride=4, padding=0),
-            nn.ReLU(),
+            nn.ReLU(), # Layer 1: broader initial patterns
             
             # Conv block 2: 23x23x32 -> 11x11x64
-            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),
-            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1), #padding is chosen to preserve edge info, control shrinking aggressively
+            nn.ReLU(), #Layer 2: Extract patterns for smaller spatial scale
             
-            # Conv block 3: 11x11x64 -> 6x6x64
+            # Conv block 3: 11x11x64 -> 6x6(spatial size of each map)x64(feature maps/channels)
             nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
+            nn.ReLU(), #Layer 3: Extract patterns for even smaller spatial scale
             
             # Flatten: 6x6x64 -> 2304
             nn.Flatten(),
             
             # Dense layer: 2304 -> feature_dim
+            # this layer combines entire spatial info into a compact feature representation
             nn.Linear(2304, feature_dim),
             nn.ReLU(),
         )
@@ -37,9 +39,9 @@ class CNNFeatureExtractor(nn.Module):
         elif x.dim() == 3 and x.shape[-1] <= 4:  # (height, width, channels)
             x = x.permute(2, 0, 1).unsqueeze(0)  # Convert to (1, channels, height, width)
         
-        # Normalize to [0, 1] range if needed
+        # Normalize to [0, 1] range as nn train in rightly scaled inputs
         if x.max() > 1.0:
             x = x / 255.0
             
-        features = self.cnn(x)
+        features = self.cnn(x) # 256 features dim vector
         return features

@@ -36,6 +36,6 @@ def calculate_gae(data, gamma=0.99, gae_lambda=0.95):
 
     # 3. Critic targets estimated return. and not using mc returns(Gt)
     # Rt = At(GAE) + V(St)
-    returns = advantages + values
+    returns = advantages + values #targeted returns
 
     return deltas, advantages, returns

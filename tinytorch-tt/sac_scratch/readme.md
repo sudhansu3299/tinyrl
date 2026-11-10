@@ -49,6 +49,14 @@ python simulate.py \
 **SIM:**
 ```bash
 python simulate.py \
+  --env BipedalWalker-v3 \
+  --checkpoint runs/BipedalWalker-v3/best.pth \
+  --episodes 3 \
+  --render
+```
+
+```bash
+python simulate.py \
   --env LunarLanderContinuous-v3 \
   --checkpoint runs/LunarLanderContinuous-v3/best.pth \
   --episodes 3 \
@@ -61,3 +69,9 @@ python simulate.py --env CarRacing-v3 \
    --episodes 10 \
    --render
 ```
+
+To visualize actions, use this flag:
+```bash
+--visualize-actions
+```
+

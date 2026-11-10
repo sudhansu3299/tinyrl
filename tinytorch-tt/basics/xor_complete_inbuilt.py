@@ -25,7 +25,7 @@ optimizer = torch.optim.Adam(
     lr=0.01
 )
 
-loss_fn = nn.BCELoss()
+loss_fn = nn.MSELoss()
 
 for epoch in range(10000):
     optimizer.zero_grad() #make prev grads zero

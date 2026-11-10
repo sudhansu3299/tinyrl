@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from cnn_feature_extractor import CNNFeatureExtractor
 
-
+# learns the Q function
 class Critic(nn.Module):
     def __init__(self, state_dim, action_dim, use_cnn=False):
         super().__init__()
@@ -26,7 +26,7 @@ class Critic(nn.Module):
                 nn.ReLU(),
                 nn.Linear(256, 256),
                 nn.ReLU(),
-                nn.Linear(256, 1),
+                nn.Linear(256, 1), #q-value
             )
 
     def forward(self, state, action):
@@ -35,7 +35,7 @@ class Critic(nn.Module):
             state_action = torch.cat([state_features, action], dim=-1)
         else:
             # Concatenate state and action along the feature dimension
-            state_action = torch.cat([state, action], dim=-1)
+            state_action = torch.cat([state, action], dim=-1) #Q(s,a)
         q_value = self.network(state_action)
 
         return q_value

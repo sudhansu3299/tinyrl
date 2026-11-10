@@ -31,6 +31,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/sac_scratch/runs/CarRacing-v3/training_rewards.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/sac_scratch/runs/LunarLanderContinuous-v3/training_rewards.csv">
           <value>
             <Attribute>
