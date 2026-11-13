@@ -2,3 +2,9 @@
 *.iml
 output.mp4
 .DS_Store
+
+# Demonstration data and BC checkpoints (large / machine-specific)
+demos/
+sac_scratch/demos/
+*.npz
+bc_actor.pth

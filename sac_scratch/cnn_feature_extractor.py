@@ -5,12 +5,16 @@ import torch.nn as nn
 class CNNFeatureExtractor(nn.Module):
     """CNN feature extractor for image based inputs like Carracing-v3"""
 
-    def __init__(self, input_channels=3, feature_dim=256):
+    def __init__(self, input_channels=4, feature_dim=256):
+        """CNN feature extractor for stacked grayscale frames.
+
+        Default input_channels=4 matches 4 stacked grayscale frames (CarRacing-v3).
+        """
         super().__init__()
-        
+
         self.cnn = nn.Sequential(
-            # Conv block 1: 96x96x3 -> 23x23x32 (H_out = (H_in + 2*padding - kernel_size)/Stride + 1)
-            # per patch of kernel, so, 3x8x8(1 filter shape) -> 1 value; 32 such filters
+            # Conv block 1: 96x96x4 -> 23x23x32 (H_out = (H_in + 2*padding - kernel_size)/Stride + 1)
+            # per patch of kernel, so, 4x8x8(1 filter shape) -> 1 value; 32 such filters
             nn.Conv2d(input_channels, 32, kernel_size=8, stride=4, padding=0),
             nn.ReLU(), # Layer 1: broader initial patterns
             

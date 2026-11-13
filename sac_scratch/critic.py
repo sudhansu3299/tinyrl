@@ -12,7 +12,7 @@ class Critic(nn.Module):
         self.use_cnn = use_cnn
         
         if use_cnn:
-            self.feature_extractor = CNNFeatureExtractor(input_channels=3, feature_dim=256)
+            self.feature_extractor = CNNFeatureExtractor(input_channels=4, feature_dim=256)
             self.network = nn.Sequential(
                 nn.Linear(256 + action_dim, 256),
                 nn.ReLU(),

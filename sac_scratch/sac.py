@@ -24,6 +24,8 @@ class SAC:
             device=None,
             auto_entropy_tuning=True,
             use_cnn=False,
+            action_low=None,
+            action_high=None,
     ):
         self.device = device or (
             "cuda" if torch.cuda.is_available() else "cpu"
@@ -50,7 +52,8 @@ class SAC:
         )
 
         self.actor = Actor(
-            state_dim, action_dim, action_scale, use_cnn=use_cnn
+            state_dim, action_dim, action_scale, use_cnn=use_cnn,
+            action_low=action_low, action_high=action_high
         ).to(self.device)
 
         # two Q networks Q1 and Q2 initialized
@@ -89,7 +92,8 @@ class SAC:
         if evaluate:
             # Deterministic action for evaluation.
             mean, _ = self.actor(state)
-            action = torch.tanh(mean) * self.actor.action_scale # to squash action from the sample to -1,1
+            squashed = torch.tanh(mean)
+            action = self.actor._squash_to_bounds(squashed)
         else:
             action, _ = self.actor.sample(state)
 

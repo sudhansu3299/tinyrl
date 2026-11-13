@@ -75,3 +75,36 @@ To visualize actions, use this flag:
 --visualize-actions
 ```
 
+# How to train with imitation learning?
+```bash
+python train.py --env CarRacing-v3 \
+  --bc-checkpoint demos/human/bc_actor.pth \
+  --demo-dir demos/human --demo-ratio 0.3 \
+  --learning-starts 1000 \
+  --steps 100000 \
+  --eval-freq 5000 \
+  --checkpoint-freq 0
+```
+
+```text
+MixedReplayBuffer draws 30% of every update batch from demos, 70% from online experience — demos stay in the buffer permanently, so the BC prior isn't washed out early.
+Demos are not baked into replay_buffer.pth; on --resume, just pass the same --demo-dir and they reload.
+--demo-ratio 0 falls back to plain SAC.
+
+```
+
+### BC + PRE-TRAIN + TRAIN
+```bash
+# 1. let the decent 150k policy drive; take over when it drifts
+python play_and_record.py --out-dir demos/human \
+  --policy-checkpoint runs/CarRacing-v3/checkpoint_150k.pth --action-repeat 2
+
+# 2. now BC on the enlarged demo set, and VALIDATE it
+python pretrain_bc.py --demo-dir demos/human --epochs 40 --loss tanh --eval-episodes 10
+
+# 3. only if the rollout mean is > ~150:
+python train.py --env CarRacing-v3 \
+  --bc-checkpoint demos/human/bc_actor.pth \
+  --demo-dir demos/human --demo-ratio 0.3 \
+  --auto-entropy-tuning --learning-starts 1000
+```
